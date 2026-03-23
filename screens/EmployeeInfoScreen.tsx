@@ -13,6 +13,10 @@ import {
 import * as Yup from "yup";
 import InputField from "../components/InputField";
 import { colors } from "../theme/MainColors";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "../firebase/config";
+import { Alert } from "react-native";
+import { signOut } from "firebase/auth";
 
 type Props = {
   navigation: any;
@@ -78,14 +82,41 @@ export default function EmployeeInfoScreen({ navigation }: Props) {
           validateOnMount={true}
           onSubmit={async (values, { resetForm }) => {
             setSubmitting(true);
+            console.log("SUBMIT STARTED");
 
             try {
-              console.log("Submitted employee info:", values);
+              const user = auth.currentUser;
 
-              await new Promise((resolve) => setTimeout(resolve, 800));
+              if (!user) {
+                Alert.alert("Error", "You must be signed in.");
+                return;
+              }
 
+              await addDoc(collection(db, "employeeSubmissions"), {
+                userId: user.uid,
+                firstName: values.firstName.trim(),
+                lastName: values.lastName.trim(),
+                employeeId: values.employeeId.trim(),
+                email: values.email.trim(),
+                phone: values.phone.trim(),
+                department: values.department.trim(),
+                startDate: values.startDate.trim(),
+                createdAt: serverTimestamp(),
+              });
+
+              console.log("FIRESTORE SAVE SUCCESS");
+              Alert.alert("Success", "Employee info saved.");
               resetForm();
+            } catch (error: any) {
+              console.log("EMPLOYEE SAVE ERROR:", error);
+              console.log("EMPLOYEE SAVE ERROR CODE:", error?.code);
+              console.log("EMPLOYEE SAVE ERROR MESSAGE:", error?.message);
+              Alert.alert(
+                "Error",
+                error?.message ?? "Could not save employee info. Please try again."
+              );
             } finally {
+              console.log("SETTING SUBMITTING FALSE");
               setSubmitting(false);
             }
           }}
@@ -172,8 +203,16 @@ export default function EmployeeInfoScreen({ navigation }: Props) {
                 </Text>
               </Pressable>
 
-              <Pressable onPress={() => navigation.navigate("Sign in")}>
-                <Text style={styles.link}>Back to Sign In</Text>
+              <Pressable
+                onPress={async () => {
+                  try {
+                    await signOut(auth);
+                  } catch (error) {
+                    console.log("Sign out error:", error);
+                  }
+                }}
+              >
+                <Text style={styles.link}>Sign Out</Text>
               </Pressable>
             </View>
           )}
